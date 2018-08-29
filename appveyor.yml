@@ -1,0 +1,13 @@
+
+version: 1.0.{build}
+image: Visual Studio 2017
+configuration:
+  - Debug
+platform:
+  - x64
+build_script:
+  - mkdir build
+  - cd build
+  - cmake ..
+  - cmake --build . --config Debug -- /v:m
+  - ctest -V -C Debug
