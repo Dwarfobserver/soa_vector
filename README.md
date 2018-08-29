@@ -1,5 +1,5 @@
 
-[![GCC Build Status](https://travis-ci.org/Dwarfobserver/soa_vector.svg?branch=master)](https://travis-ci.org/Dwarfobserver/soa_vector) [![MSVC Build Status](https://ci.appveyor.com/api/projects/status/github/Dwarfobserver/soa_vector?svg=true)](https://ci.appveyor.com/project/Dwarfobserver/soa_vector) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GCC & Clang Build Status](https://travis-ci.org/Dwarfobserver/soa_vector.svg?branch=master)](https://travis-ci.org/Dwarfobserver/soa_vector) [![MSVC Build Status](https://ci.appveyor.com/api/projects/status/github/Dwarfobserver/soa_vector?svg=true)](https://ci.appveyor.com/project/Dwarfobserver/soa_vector) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # SoA vector
 
@@ -79,3 +79,8 @@ Project limitations :
  - It does not support aggregates with native arrays (eg. T[N], use std::array<T, N> instead).
  - It does not support aggregates with base classes (they are detected as aggregates but can't be destructured).
  - It does not support over-aligned types from the aggregates.
+
+What's coming :
+
+ - Exceptions garantees for the av::vector functions (in code and documented)
+ - av::hybrid_vector<class T, size_t GroupSize, class Allocator> which holds little arrays of components to be more cache-friendly while itearting on sevveral components at the same time (the components layout can look like this :  xxxxyyyyzzzzxxxxyyyyzzzz..., for T = {x, y, z} and GroupSize = 4)
