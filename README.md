@@ -1,5 +1,5 @@
 
-[![GCC & Clang Build Status](https://travis-ci.org/Dwarfobserver/soa_vector.svg?branch=master)](https://travis-ci.org/Dwarfobserver/soa_vector) [![MSVC Build Status](https://ci.appveyor.com/api/projects/status/github/Dwarfobserver/soa_vector?svg=true)](https://ci.appveyor.com/project/Dwarfobserver/soa-vector) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GCC & Clang Build Status](https://travis-ci.org/Dwarfobserver/soa_vector.svg?branch=master)](https://travis-ci.org/Dwarfobserver/soa_vector) [![MSVC Build Status](https://ci.appveyor.com/api/projects/status/4p7srw0qe4bmshe8/branch/master?svg=true)](https://ci.appveyor.com/project/Dwarfobserver/soa-vector) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # SoA vector
 
