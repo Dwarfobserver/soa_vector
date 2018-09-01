@@ -270,19 +270,18 @@ namespace detail {
     }
 
     // Predicates about a list of types.
-    // Workaround for MSVC : fold expressions can't be assigned to a variable in
-    // the template class.
+    // Workaround for MSVC : fold expressions don't work with template class arguments.
     namespace impl {
         template <class...Ts>
         static constexpr bool has_noexcept_move = ((
-            std::is_nothrow_move_constructible_v<Ts>
-            && std::is_nothrow_move_assignable_v<Ts>
+            std::is_nothrow_move_constructible_v<Ts> &&
+            std::is_nothrow_move_assignable_v<Ts>
             ) && ...);
             
         template <class...Ts>
         static constexpr bool has_noexcept_copy = ((
-            std::is_nothrow_copy_constructible_v<Ts>
-            && std::is_nothrow_copy_assignable_v<Ts>
+            std::is_nothrow_copy_constructible_v<Ts> &&
+            std::is_nothrow_copy_assignable_v<Ts>
             ) && ...);
     }
 
