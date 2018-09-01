@@ -27,17 +27,26 @@ template <size_t Pos, class Aggregate, class T>
 class vector_span;
 
 // Specialized for aggregates so soa::vector<T> can be istanciated.
-// Specialization of non-template types can be done with the macro
-// 'SOA_DEFINE_TYPE(type, members...);' in the global namespace.
+// Exemple of specialization :
+//
+// struct person {
+//     std::string name;
+//     int age;
+// };
+//
+// template <>
+// struct members<person> {
+//     vector_span<0, person, std::string> name; 
+//     vector_span<1, person, int> age;
+// };
 template <class Aggregate>
 struct members {};
 
-// Exemple of specialization (for std::pair).
-template <class T1, class T2>
-struct members<std::pair<T1, T2>> {
-    vector_span<0, std::pair<T1, T2>, T1> first; 
-    vector_span<1, std::pair<T1, T2>, T2> second;
-};
+// This macro specialize sao::members for the given type and it's members.
+// The macro is implemented at the end of the header.
+//
+// 'SOA_DEFINE_TYPE(person, name, age);' is equivalent to the specialization above.
+#define SOA_DEFINE_TYPE(type, ...)
 
 namespace detail {
 
@@ -77,6 +86,10 @@ namespace detail {
         using type = get<0>;
     };
 
+    // An empty type used to pass values.
+    template <auto...Args>
+    struct value_tag {};
+
     namespace impl {
         template <class Tuple>
         struct tuple_tag {};
@@ -109,6 +122,10 @@ class vector_span {
     friend struct members;
 public:
     using value_type = T;
+    using iterator = T*;
+    using const_iterator = T const*;
+
+    static_assert(!std::is_reference_v<T>, "T cannot be a reference");
 
     T*       data()       noexcept { return ptr_; }
     T const* data() const noexcept { return ptr_; }
@@ -132,14 +149,15 @@ private:
             {"soa::vector_span at() out of range"};
     }
 
-    vector_span() = default;
-    vector_span(vector_span const&) = default;
-    vector_span& operator=(vector_span const&) = default;
-    
+    vector_span() noexcept : 
+        ptr_{ nullptr }
+    {}
     vector_span(std::byte* ptr) noexcept :
         ptr_{ reinterpret_cast<T*>(ptr) }
     {}
-
+    vector_span(vector_span const&) = default;
+    vector_span& operator=(vector_span const&) = default;
+    
     T* ptr_;
 };
 
@@ -251,6 +269,30 @@ namespace detail {
         detail::for_each(t1, t2, f, seq{});
     }
 
+    // Predicates about a list of types.
+    // Workaround for MSVC : fold expressions don't work with template class arguments.
+    namespace impl {
+        template <class...Ts>
+        static constexpr bool has_noexcept_move = ((
+            std::is_nothrow_move_constructible_v<Ts> &&
+            std::is_nothrow_move_assignable_v<Ts>
+            ) && ...);
+            
+        template <class...Ts>
+        static constexpr bool has_noexcept_copy = ((
+            std::is_nothrow_copy_constructible_v<Ts> &&
+            std::is_nothrow_copy_assignable_v<Ts>
+            ) && ...);
+    }
+
+    template <class Tag>
+    struct components;
+    template <class...Ts>
+    struct components<type_tag<Ts...>> {
+        static constexpr bool has_noexcept_move = impl::has_noexcept_move<Ts...>;
+        static constexpr bool has_noexcept_copy = impl::has_noexcept_copy<Ts...>;
+    };
+
 } // ::detail
 
 // Stores components of the aggregate T (given by the specialization soa::member<T>)
@@ -274,7 +316,7 @@ public:
 
     // Assignments.
     vector& operator=(vector&& rhs) noexcept;
-    vector& operator=(vector const& rhs); // TODO Keep array if great enough.
+    vector& operator=(vector const& rhs);
 
     // Destructor.
     ~vector();
@@ -303,18 +345,21 @@ public:
     template <size_t I>
     auto const& get_span() const noexcept;
 private:
+    static_assert(!std::is_empty_v<members<T>>,
+        "soa::members<T> must be specialized to hold "
+        "an soa::vector_span for each member of T. "
+        "This can for exemple be done with the macro "
+        "SOA_DEFINE_TYPE(type, members...).");
+    
+    static_assert(detail::arity_v<members<T>> <= detail::max_arity,
+        "soa::members<T> must have less than 'max_arity' members. "
+        "This limit can be increased by writing more overloads of 'as_tuple'.");
+        
     // Some static asserts on the soa::member<T> type.
-    // Workaround MSVC : must returns a value to be constexpr.
-    static constexpr int check_members();
+    // Workaround for MSVC : must returns a value to be constexpr.
+    /*static constexpr int check_members();
     static constexpr int check_members_trigger = check_members();
-
-    // Explicit cast to base class.
-    members<T>&      base()       noexcept { return *this; }
-    members<T>const& base() const noexcept { return *this; }
-
-    detail::members_with_size<T>&       base_with_size()       noexcept { return *this; }
-    detail::members_with_size<T> const& base_with_size() const noexcept { return *this; }
-
+    */
     using sequence_type = std::make_index_sequence<components_count>;
 
     // components_tag = detail::type_tag<Ts...>.
@@ -330,6 +375,33 @@ private:
 
     using allocator_traits = std::allocator_traits<allocator_type>;
 
+    using components = detail::components<components_tag>;
+    static_assert(components::has_noexcept_move,
+        "Each T component move constructor and "
+        "assignment must be marked 'noexcept'");
+
+    // Explicit cast to base class.
+    members<T>&      base()       noexcept { return *this; }
+    members<T>const& base() const noexcept { return *this; }
+
+    detail::members_with_size<T>&       base_with_size()       noexcept { return *this; }
+    detail::members_with_size<T> const& base_with_size() const noexcept { return *this; }
+
+    // Functions dispatch (regarding has_noexcept_copy).
+/*
+    vector(vector const& rhs, detail::value_type<false>);
+    vector(vector const& rhs, detail::value_type<true>);
+
+    vector& operator=(vector const& rhs, detail::value_type<false>);
+    vector& operator=(vector const& rhs, detail::value_type<true>);
+    
+    void resize(int size, detail::value_type<false>);
+    void resize(int size, detail::value_type<true>);
+
+    // Dispatch on has_noexcept_default_constructor.
+    void resize(int size, T const& value, detail::value_type<false>);
+    void resize(int size, T const& value, detail::value_type<true>);
+*/
     // Functions implementations.
 
     template <class Tuple, size_t...Is>
@@ -374,23 +446,7 @@ private:
     int nb_bytes_;
 };
 
-// soa::vector implementation.
-
-// The check function returns an arbitrary value to be executed at compile-time :
-// The msvc version used don't support constexpr void functions.
-template <class T, class Allocator>
-constexpr int vector<T, Allocator>::check_members() {
-
-    static_assert(!std::is_empty_v<members<T>>,
-        "soa::members<T> must be specialized to hold "
-        "an soa::vector_span for each member of T");
-    
-    static_assert(detail::arity_v<members<T>> <= detail::max_arity,
-        "soa::members<T> must have less than 'max_arity' members. "
-        "This limit can be increased by writing more overloads of 'as_tuple'.");
-    
-    return 0;
-}
+// soa::vector implementation :
 
 // Constructors.
 
@@ -766,6 +822,7 @@ void vector<T, Allocator>::to_zero() noexcept {
 //     };
 // }
 //
+#undef  SOA_DEFINE_TYPE
 #define SOA_DEFINE_TYPE(type, ...) \
 namespace soa { \
     template <> \

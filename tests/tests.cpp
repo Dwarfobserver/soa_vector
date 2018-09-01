@@ -118,6 +118,9 @@ struct movable {
 };
 SOA_DEFINE_TYPE(movable, ptr);
 
+static_assert(std::is_nothrow_move_constructible_v<std::string>);
+static_assert(std::is_nothrow_move_assignable_v<std::string>);
+
 TEST_CASE("generic comparisons against std::vector") {
     test_vector(user::physics{ true, 2.0, 3.f, 42 });
     test_vector(person{ "Sid", 22, true });
