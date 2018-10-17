@@ -32,11 +32,36 @@ class vector_span;
 template <class Aggregate>
 struct members {};
 
-// Exemple of specialization (for std::pair).
+// These proxy types are defined with the macro. They are created when iterating on
+// a soa::vector and mimic the given aggregate members as references.
+template <class Aggregate>
+struct ref_proxy {};
+template <class Aggregate>
+struct cref_proxy {};
+
+// Exemple of specialization (for std::pair) :
 template <class T1, class T2>
 struct members<std::pair<T1, T2>> {
     vector_span<0, std::pair<T1, T2>, T1> first; 
     vector_span<1, std::pair<T1, T2>, T2> second;
+};
+template <class T1, class T2>
+struct ref_proxy<std::pair<T1, T2>> {
+    T1 & first;
+    T2 & second;
+    
+    constexpr operator std::pair<T1, T2>() const {
+        return { first, second };
+    }
+};
+template <class T1, class T2>
+struct cref_proxy<std::pair<T1, T2>> {
+    T1 const& first;
+    T2 const& second;
+    
+    constexpr operator std::pair<T1, T2>() const {
+        return { first, second };
+    }
 };
 
 namespace detail {
@@ -110,21 +135,21 @@ class vector_span {
 public:
     using value_type = T;
 
-    T*       data()       noexcept { return ptr_; }
+    T *      data()       noexcept { return ptr_; }
     T const* data() const noexcept { return ptr_; }
 
     int size() const noexcept;
 
-    T&       operator[](int i)       noexcept { return ptr_[i]; }
+    T &      operator[](int i)       noexcept { return ptr_[i]; }
     T const& operator[](int i) const noexcept { return ptr_[i]; }
 
-    T&       at(int i)       { at_check(i); return ptr_[i]; }
+    T &      at(int i)       { at_check(i); return ptr_[i]; }
     T const& at(int i) const { at_check(i); return ptr_[i]; }
 
-    T*       begin()       noexcept { return ptr_; }
+    T *      begin()       noexcept { return ptr_; }
     T const* begin() const noexcept { return ptr_; }
 
-    T*       end()       noexcept { return ptr_ + size(); }
+    T *      end()       noexcept { return ptr_ + size(); }
     T const* end() const noexcept { return ptr_ + size(); }
 private:
     void at_check(int i) const {
@@ -136,11 +161,11 @@ private:
     vector_span(vector_span const&) = default;
     vector_span& operator=(vector_span const&) = default;
     
-    vector_span(std::byte* ptr) noexcept :
-        ptr_{ reinterpret_cast<T*>(ptr) }
+    vector_span(std::byte * ptr) noexcept :
+        ptr_{ reinterpret_cast<T *>(ptr) }
     {}
 
-    T* ptr_;
+    T * ptr_;
 };
 
 // Template arguments are used to retrieve the size from detail::members_with_size<Aggregate>.
@@ -155,53 +180,53 @@ namespace detail {
     // Aggregate to tuple implementation, only for soa::member<T>.
 
     template <class T>
-    auto as_tuple(T& agg, std::integral_constant<int, 1>) {
-        auto& [v1] = agg;
+    auto as_tuple(T & agg, std::integral_constant<int, 1>) {
+        auto & [v1] = agg;
         return std::forward_as_tuple(v1);
     }
     template <class T>
-    auto as_tuple(T& agg, std::integral_constant<int, 2>) {
-        auto& [v1, v2] = agg;
+    auto as_tuple(T & agg, std::integral_constant<int, 2>) {
+        auto & [v1, v2] = agg;
         return std::forward_as_tuple(v1, v2);
     }
     template <class T>
-    auto as_tuple(T& agg, std::integral_constant<int, 3>) {
-        auto& [v1, v2, v3] = agg;
+    auto as_tuple(T & agg, std::integral_constant<int, 3>) {
+        auto & [v1, v2, v3] = agg;
         return std::forward_as_tuple(v1, v2, v3);
     }
     template <class T>
-    auto as_tuple(T& agg, std::integral_constant<int, 4>) {
-        auto& [v1, v2, v3, v4] = agg;
+    auto as_tuple(T & agg, std::integral_constant<int, 4>) {
+        auto & [v1, v2, v3, v4] = agg;
         return std::forward_as_tuple(v1, v2, v3, v4);
     }
     template <class T>
-    auto as_tuple(T& agg, std::integral_constant<int, 5>) {
-        auto& [v1, v2, v3, v4, v5] = agg;
+    auto as_tuple(T & agg, std::integral_constant<int, 5>) {
+        auto & [v1, v2, v3, v4, v5] = agg;
         return std::forward_as_tuple(v1, v2, v3, v4, v5);
     }
     template <class T>
-    auto as_tuple(T& agg, std::integral_constant<int, 6>) {
-        auto& [v1, v2, v3, v4, v5, v6] = agg;
+    auto as_tuple(T & agg, std::integral_constant<int, 6>) {
+        auto & [v1, v2, v3, v4, v5, v6] = agg;
         return std::forward_as_tuple(v1, v2, v3, v4, v5, v6);
     }
     template <class T>
-    auto as_tuple(T& agg, std::integral_constant<int, 7>) {
-        auto& [v1, v2, v3, v4, v5, v6, v7] = agg;
+    auto as_tuple(T & agg, std::integral_constant<int, 7>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7] = agg;
         return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7);
     }
     template <class T>
-    auto as_tuple(T& agg, std::integral_constant<int, 8>) {
-        auto& [v1, v2, v3, v4, v5, v6, v7, v8] = agg;
+    auto as_tuple(T & agg, std::integral_constant<int, 8>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7, v8] = agg;
         return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8);
     }
     template <class T>
-    auto as_tuple(T& agg, std::integral_constant<int, 9>) {
-        auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9] = agg;
+    auto as_tuple(T & agg, std::integral_constant<int, 9>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7, v8, v9] = agg;
         return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8, v9);
     }
     template <class T>
-    auto as_tuple(T& agg, std::integral_constant<int, 10>) {
-        auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10] = agg;
+    auto as_tuple(T & agg, std::integral_constant<int, 10>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10] = agg;
         return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10);
     }
 
@@ -218,38 +243,88 @@ namespace detail {
         return as_tuple(agg, std::integral_constant<int, arity_v<members<T>>>{});
     }
     template <class T>
-    auto as_tuple(members<T>& agg) {
+    auto as_tuple(members<T> & agg) {
         return as_tuple(agg, std::integral_constant<int, arity_v<members<T>>>{});
     }
 
     // Allows to converts any aggregate to a tuple given it's arity.
     template <size_t Arity, class T>
-    auto as_tuple(T&& agg) {
+    auto as_tuple(T && agg) {
         return as_tuple(agg, std::integral_constant<int, Arity>{});
     }
 
     // for_each loops takes a function object to operate on one or two tuples of references.
+    // Note : C++20 template lambdas would be cleaner to retrieve the type.
 
     template <class F, size_t...Is, class...Ts>
-    constexpr void for_each(std::tuple<Ts&...> const& tuple, F&& f, std::index_sequence<Is...>) {
+    constexpr void for_each(std::tuple<Ts &...> const& tuple, F && f, std::index_sequence<Is...>) {
         (f(std::get<Is>(tuple), type_tag<typename Ts::value_type>{}), ...);
     }
     template <class F, class...Ts>
-    constexpr void for_each(std::tuple<Ts&...> const& tuple, F&& f) {
+    constexpr void for_each(std::tuple<Ts &...> const& tuple, F && f) {
         using seq = std::make_index_sequence<sizeof...(Ts)>;
         detail::for_each(tuple, f, seq{});
     }
 
     template <class F, size_t...Is, class...Ts1, class...Ts2>
-    constexpr void for_each(std::tuple<Ts1&...> const& t1, std::tuple<Ts2&...> const& t2, F&& f, std::index_sequence<Is...>) {
+    constexpr void for_each(std::tuple<Ts1 &...> const& t1, std::tuple<Ts2 &...> const& t2, F && f, std::index_sequence<Is...>) {
         (f(std::get<Is>(t1), std::get<Is>(t2), type_tag<typename Ts1::value_type>{}), ...);
     }
     template <class F, class...Ts1, class...Ts2>
-    constexpr void for_each(std::tuple<Ts1&...> const& t1, std::tuple<Ts2&...> const& t2, F&& f) {
+    constexpr void for_each(std::tuple<Ts1 &...> const& t1, std::tuple<Ts2 &...> const& t2, F && f) {
         static_assert(sizeof...(Ts1) == sizeof...(Ts2));
         using seq = std::make_index_sequence<sizeof...(Ts1)>;
         detail::for_each(t1, t2, f, seq{});
     }
+
+    // Iterator used by soa::vector to return new proxies with references to the elements.
+    template <class Vector, bool IsConst>
+    class proxy_iterator {
+        friend Vector;
+
+        using vector_pointer_type = std::conditional_t<IsConst,
+            Vector const*,
+            Vector *>;
+
+        vector_pointer_type vec_;
+        int index_;
+
+        proxy_iterator(vector_pointer_type vec, int index) noexcept :
+            vec_{vec}, index_{index} {}
+    public:
+        using value_type = std::conditional_t<IsConst,
+            typename Vector::const_reference_type,
+            typename Vector::reference_type>;
+
+    private:
+        template <size_t...Is>
+        value_type make_proxy(std::index_sequence<Is...>) const noexcept {
+            return { vec_->get_span<Is>()[index_], ... };
+        }
+    public:
+        value_type operator*() const noexcept { return make_proxy(Vector::sequence_type{}); }
+
+        bool operator==(proxy_iterator const& rhs) const noexcept { return index_ == rhs.index_; }
+        bool operator!=(proxy_iterator const& rhs) const noexcept { return !(*this == rhs); }
+
+        bool operator<(proxy_iterator const& rhs) const noexcept { return index_ < rhs.index_; }
+        bool operator>(proxy_iterator const& rhs) const noexcept { return rhs < *this; }
+        bool operator<=(proxy_iterator const& rhs) const noexcept { return !(rhs < *this); }
+        bool operator>=(proxy_iterator const& rhs) const noexcept { return !(*this < rhs); }
+
+        proxy_iterator & operator++() noexcept { return ++index_, *this; }
+        proxy_iterator & operator--() noexcept { return --index_, *this; }
+        proxy_iterator & operator++(int) noexcept { const auto old = *this; return ++index_, old; }
+        proxy_iterator & operator--(int) noexcept { const auto old = *this; return --index_, old; }
+
+        proxy_iterator & operator+=(int shift) noexcept { return index_ += shift, *this; }
+        proxy_iterator & operator-=(int shift) noexcept { return index_ -= shift, *this; }
+
+        proxy_iterator operator+(int shift) const noexcept { return { vec_, index_ + shift }; }
+        proxy_iterator operator-(int shift) const noexcept { return { vec_, index_ - shift }; }
+        
+        int operator-(proxy_iterator const& rhs) const noexcept { return _index - rhs.index_; }
+    };
 
 } // ::detail
 
@@ -264,17 +339,24 @@ public:
     // The given allocator is reboud to std::byte to store the different member types.
     using allocator_type = typename std::allocator_traits<Allocator>::template rebind_alloc<std::byte>;
 
+    using value_type           = T;
+    using reference_type       = ref_proxy<T>;
+    using const_reference_type = cref_proxy<T>;
+
+    using iterator       = detail::proxy_iterator<vector, false>;
+    using const_iterator = detail::proxy_iterator<vector, true>;
+
     // The number of T members.
     static constexpr int components_count = detail::arity_v<members<T>>;
 
     // Constructors.
     vector(Allocator allocator = Allocator{}) noexcept;
-    vector(vector&& rhs) noexcept;
+    vector(vector && rhs) noexcept;
     vector(vector const& rhs);
 
     // Assignments.
-    vector& operator=(vector&& rhs) noexcept;
-    vector& operator=(vector const& rhs); // TODO Keep array if great enough.
+    vector& operator=(vector && rhs) noexcept;
+    vector& operator=(vector const& rhs);
 
     // Destructor.
     ~vector();
@@ -288,9 +370,9 @@ public:
 
     // Add and remove an element.
     template <class...Ts>
-    void emplace_back(Ts&&...components);
+    void emplace_back(Ts &&...components);
     void push_back(T const& value);
-    void push_back(T&& value);
+    void push_back(T && value);
     void pop_back();
 
     // Accessors.
@@ -298,11 +380,22 @@ public:
     int  capacity() const noexcept { return capacity_; }
     bool empty()    const noexcept { return size() == 0; }
 
+    // Iterators.
+    iterator       begin()        noexcept { return { this, 0 }; }
+    const_iterator begin()  const noexcept { return { this, 0 }; }
+    const_iterator cbegin() const noexcept { return begin(); }
+    iterator       end()        noexcept { return { this, size() }; }
+    const_iterator end()  const noexcept { return { this, size() }; }
+    const_iterator cend() const noexcept { return end(); }
+
     template <size_t I>
-    auto& get_span() noexcept;
+    auto & get_span() noexcept;
     template <size_t I>
-    auto const& get_span() const noexcept;
+    auto const & get_span() const noexcept;
 private:
+    friend class iterator;
+    friend class const_iterator;
+
     // Some static asserts on the soa::member<T> type.
     // Workaround MSVC : must returns a value to be constexpr.
     static constexpr int check_members();
@@ -742,6 +835,12 @@ void vector<T, Allocator>::to_zero() noexcept {
 
 #define SOA_PP_MEMBER(nb, type, name) \
     vector_span<nb, type, decltype(std::declval<type>().name)> name;
+    
+#define SOA_PP_REF(nb, type, name) \
+    decltype(std::declval<type>().name) & name;
+
+#define SOA_PP_CREF(nb, type, name) \
+    decltype(std::declval<type>().name) const& name;
 
 // Shortcut to specialize soa::member<my_type>, by listing all the members
 // in their declaration order. It must be used in the global namespace.
@@ -762,7 +861,17 @@ void vector<T, Allocator>::to_zero() noexcept {
 //     template <>
 //     struct members<::user::person> {
 //         vector_span<0, ::user::person, std::string> name;
-//         vector_span<1, ::user::person, int>         age;
+//         vector_span<1, ::user::person, int> age;
+//     };
+//     template <>
+//     struct ref_proxy<::user::person> {
+//         std::string & name;
+//         int & age;
+//     };
+//     template <>
+//     struct cref_proxy<::user::person> {
+//         std::string const& name;
+//         int const& age;
 //     };
 // }
 //
@@ -771,6 +880,14 @@ namespace soa { \
     template <> \
     struct members<::type> { \
         SOA_PP_MAP(SOA_PP_MEMBER, type, __VA_ARGS__) \
+    }; \
+    template <> \
+    struct ref_proxy<::type> { \
+        SOA_PP_MAP(SOA_PP_REF, type, __VA_ARGS__) \
+    }; \
+    template <> \
+    struct cref_proxy<::type> { \
+        SOA_PP_MAP(SOA_PP_CREF, type, __VA_ARGS__) \
     }; \
 } \
 struct _soa__force_semicolon_
