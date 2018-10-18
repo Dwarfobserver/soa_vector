@@ -50,6 +50,11 @@ struct ref_proxy<std::pair<T1, T2>> {
     T1 & first;
     T2 & second;
     
+    // Use of template class to allow SFINAE.
+    // This operator is optional.
+    template <class T_ = T1, class = std::enable_if_t<
+        std::is_copy_constructible_v<std::pair<T_, T2>>
+    >>
     constexpr operator std::pair<T1, T2>() const {
         return { first, second };
     }
@@ -59,6 +64,9 @@ struct cref_proxy<std::pair<T1, T2>> {
     T1 const& first;
     T2 const& second;
     
+    template <class T_ = T1, class = std::enable_if_t<
+        std::is_copy_constructible_v<std::pair<T_, T2>>
+    >>
     constexpr operator std::pair<T1, T2>() const {
         return { first, second };
     }
@@ -292,14 +300,16 @@ namespace detail {
         proxy_iterator(vector_pointer_type vec, int index) noexcept :
             vec_{vec}, index_{index} {}
     public:
+        // Note : replace with std::continuous_iteartor_rag when it is available.
+        using iterator_category = std::random_access_iterator_tag;
+
         using value_type = std::conditional_t<IsConst,
             typename Vector::const_reference_type,
             typename Vector::reference_type>;
-
     private:
         template <size_t...Is>
         value_type make_proxy(std::index_sequence<Is...>) const noexcept {
-            return { (vec_->template get_span<Is>()[index_]), ... };
+            return { vec_->template get_span<Is>()[index_] ... };
         }
     public:
         value_type operator*() const noexcept { return make_proxy(typename Vector::sequence_type{}); }
@@ -375,10 +385,14 @@ public:
     void push_back(T && value);
     void pop_back();
 
-    // Accessors.
+    // Informations.
     int  size()     const noexcept { return this->size_; }
     int  capacity() const noexcept { return capacity_; }
     bool empty()    const noexcept { return size() == 0; }
+
+    // Accessors.
+    reference_type       operator[](int i)       noexcept { return *      iterator{ this, i }; } 
+    const_reference_type operator[](int i) const noexcept { return *const_iterator{ this, i }; }
 
     // Iterators.
     iterator       begin()        noexcept { return { this, 0 }; }

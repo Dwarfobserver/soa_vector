@@ -27,14 +27,8 @@ namespace user {
 }
 
 // We expose the aggregate so it can be used by soa::vector.
+// It defines spans contained in soa::vector and proxy types.
 SOA_DEFINE_TYPE(user::person, name, age);
-// The line above is equivalent to :
-// namespace soa {
-//     template <> struct members<::user::person> {
-//         vector_span<0, ::user::person, std::string> name;
-//         vector_span<1, ::user::person, int>         age;
-//     };
-// }
 
 // We can now manipulate our soa::vector.
 soa::vector<user::person> make_persons() {
@@ -53,8 +47,10 @@ soa::vector<user::person> make_persons() {
     for (auto& age : persons.age)
         age += 1;
     
-    for (auto& name : persons.name)
-        std::cout << "new person : " << name << '\n';
+    // You can also access to the components like a classic vector through a proxy.
+    // Be careful to not use the proxy with a dangling reference.
+    for (auto p : persons)
+        std::cout << "new person : " << p.name << '\n';
     
     return persons;
 }
@@ -73,14 +69,28 @@ ctest -V
 
 ```
 
+Accessing components through the proxy (with vector iterators and accessors) instead of using the vector ranges (vector.xxx iterators and accessors) can be more restrictive in generic code due to the proxy, and lead to performance degradation for some compilers or use cases :
+
+```cpp
+
+// With -O3, GCC and Clang compiles this function with memcpy, but not MSVC with /Ox.
+void copy_ages_with_proxy(soa::vector<user::person> const& persons, int* __restrict dst) {
+    for (int i = 0; i < persons.size(); ++i) {
+        dst[i] = persons[i].age;
+    }
+}
+// The three compilers use memcpy.
+void copy_ages_with_span(soa::vector<user::person> const& persons, int* __restrict dst) {
+    for (int i = 0; i < persons.size(); ++i) {
+        dst[i] = persons.age[i];
+    }
+}
+
+```
+
 Project limitations :
 
  - The aggregate max size is limited (10 by default, it can be increased with more copy-pasta of the 'soa::detail::as_tuple' function).
  - It does not support aggregates with native arrays (eg. T[N], use std::array<T, N> instead).
  - It does not support aggregates with base classes (they are detected as aggregates but can't be destructured).
  - It does not support over-aligned types from the aggregates.
-
-What's next :
-
- - Exceptions garantees for the soa::vector functions (in code and documented)
- - soa::hybrid_vector<class T, size_t GroupSize, class Allocator> which holds little arrays of components to be more cache-friendly while itearting on sevveral components at the same time (the components layout will look like this :  xxxxyyyyzzzzxxxxyyyyzzzz..., for T = {x, y, z} and GroupSize = 4)

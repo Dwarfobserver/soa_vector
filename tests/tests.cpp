@@ -3,7 +3,8 @@
 #include "catch.hpp"
 #include "../soa_vector.hpp"
 
-// utility functions
+// Utility functions.
+// Scroll to the bottom to have friendly code.
 
 // Get iterator on component I/N of values from std::vector<T>.
 template <size_t I, size_t N, class T>
@@ -130,12 +131,43 @@ TEST_CASE("generic comparisons against std::vector") {
 TEST_CASE("move-only types") {
     auto v2 = soa::vector<movable>{};
     auto v1 = std::move(v2);
+
     v1.emplace_back(std::make_unique<int>());
     REQUIRE(v1.capacity() == 1);
+
     v1.emplace_back(std::make_unique<int>());
     REQUIRE(v1.capacity() > 1);
+
     v2 = std::move(v1);
     REQUIRE(v2.size() == 2);
+}
+
+TEST_CASE("proxy objects") {
+    auto persons = soa::vector<person>{};
+    persons.emplace_back("Bob", 12);
+    persons.emplace_back("Alice", 13);
+
+    person const bob = persons[0];
+    REQUIRE(bob.name == persons.name[0]);
+    REQUIRE(bob.age  == persons.age[0]);
+
+    auto const ages = persons.age[0] + persons.age[1];
+
+    auto ages_1 = 0;
+    for (int i = 0; i < persons.size(); ++i) {
+        ages_1 += persons[i].age;
+    }
+    REQUIRE(ages == ages_1);
+
+    auto ages_2 = 0;
+    for (auto p : persons) ages_2 += p.age;
+    REQUIRE(ages == ages_2);
+
+    auto ages_3 = 0;
+    std::for_each(persons.cbegin(), persons.cend(), [&] (auto p) {
+        ages_3 += p.age;
+    });
+    REQUIRE(ages == ages_3);
 }
 
 TEST_CASE("conditions not covered previously") {
