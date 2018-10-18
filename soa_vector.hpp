@@ -299,10 +299,10 @@ namespace detail {
     private:
         template <size_t...Is>
         value_type make_proxy(std::index_sequence<Is...>) const noexcept {
-            return { vec_->get_span<Is>()[index_], ... };
+            return { (vec_->template get_span<Is>()[index_]), ... };
         }
     public:
-        value_type operator*() const noexcept { return make_proxy(Vector::sequence_type{}); }
+        value_type operator*() const noexcept { return make_proxy(typename Vector::sequence_type{}); }
 
         bool operator==(proxy_iterator const& rhs) const noexcept { return index_ == rhs.index_; }
         bool operator!=(proxy_iterator const& rhs) const noexcept { return !(*this == rhs); }
@@ -323,7 +323,7 @@ namespace detail {
         proxy_iterator operator+(int shift) const noexcept { return { vec_, index_ + shift }; }
         proxy_iterator operator-(int shift) const noexcept { return { vec_, index_ - shift }; }
         
-        int operator-(proxy_iterator const& rhs) const noexcept { return _index - rhs.index_; }
+        int operator-(proxy_iterator const& rhs) const noexcept { return index_ - rhs.index_; }
     };
 
 } // ::detail
@@ -393,8 +393,8 @@ public:
     template <size_t I>
     auto const & get_span() const noexcept;
 private:
-    friend class iterator;
-    friend class const_iterator;
+    friend iterator;
+    friend const_iterator;
 
     // Some static asserts on the soa::member<T> type.
     // Workaround MSVC : must returns a value to be constexpr.
@@ -867,27 +867,48 @@ void vector<T, Allocator>::to_zero() noexcept {
 //     struct ref_proxy<::user::person> {
 //         std::string & name;
 //         int & age;
+//          
+//         operator ::user::person() const {
+//             return { name, age };
+//         }
 //     };
 //     template <>
 //     struct cref_proxy<::user::person> {
 //         std::string const& name;
 //         int const& age;
+//          
+//         operator ::user::person() const {
+//             return { name, age };
+//         }
 //     };
 // }
-//
 #define SOA_DEFINE_TYPE(type, ...) \
 namespace soa { \
     template <> \
     struct members<::type> { \
-        SOA_PP_MAP(SOA_PP_MEMBER, type, __VA_ARGS__) \
+        SOA_PP_MAP(SOA_PP_MEMBER, ::type, __VA_ARGS__) \
     }; \
     template <> \
     struct ref_proxy<::type> { \
-        SOA_PP_MAP(SOA_PP_REF, type, __VA_ARGS__) \
+        SOA_PP_MAP(SOA_PP_REF, ::type, __VA_ARGS__) \
+        /* Use template class to allow SFINAE */ \
+        template <class T, class = std::enable_if_t<std::is_same_v<T, ::type> && \
+            std::is_copy_constructible_v<::type> \
+        >> \
+        operator T() const { \
+            return { __VA_ARGS__ }; \
+        } \
     }; \
     template <> \
     struct cref_proxy<::type> { \
-        SOA_PP_MAP(SOA_PP_CREF, type, __VA_ARGS__) \
+        SOA_PP_MAP(SOA_PP_CREF, ::type, __VA_ARGS__) \
+        /* Use template class to allow SFINAE */ \
+        template <class T, class = std::enable_if_t<std::is_same_v<T, ::type> && \
+            std::is_copy_constructible_v<::type> \
+        >> \
+        operator T() const { \
+            return { __VA_ARGS__ }; \
+        } \
     }; \
 } \
 struct _soa__force_semicolon_

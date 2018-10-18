@@ -3,6 +3,7 @@
 #include "catch.hpp"
 #include "../soa_vector.hpp"
 
+// utility functions
 
 // Get iterator on component I/N of values from std::vector<T>.
 template <size_t I, size_t N, class T>
@@ -95,6 +96,7 @@ void test_vector(T const& value) {
     #undef SOA_CHECK
 }
 
+// Test data
 
 namespace user {
     struct physics {
@@ -117,6 +119,8 @@ struct movable {
     std::unique_ptr<int> ptr;
 };
 SOA_DEFINE_TYPE(movable, ptr);
+
+// Tests
 
 TEST_CASE("generic comparisons against std::vector") {
     test_vector(user::physics{ true, 2.0, 3.f, 42 });
