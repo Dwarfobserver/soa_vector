@@ -47,7 +47,7 @@ soa::vector<user::person> make_persons() {
     for (auto& age : persons.age)
         age += 1;
     
-    // You can also access to the components like a classic vector through a proxy.
+    // You can also access the components like a classic vector through a proxy.
     // Be careful to not use the proxy with a dangling reference.
     for (auto p : persons)
         std::cout << "new person : " << p.name << '\n';

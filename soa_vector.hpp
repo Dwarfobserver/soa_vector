@@ -32,12 +32,19 @@ class vector_span;
 template <class Aggregate>
 struct members {};
 
-// These proxy types are defined with the macro. They are created when iterating on
-// a soa::vector and mimic the given aggregate members as references.
+// These proxy types are defined with the macro. They are created when iterating on a
+// soa::vector and mimic the given aggregate members as references.
 template <class Aggregate>
 struct ref_proxy {};
 template <class Aggregate>
 struct cref_proxy {};
+
+// A trait allows to check if the three class above have been defined for the given type.
+template <class Aggregate>
+constexpr bool is_defined_v =
+    !std::is_empty_v<members   <Aggregate>> &&
+    !std::is_empty_v<ref_proxy <Aggregate>> &&
+    !std::is_empty_v<cref_proxy<Aggregate>>;
 
 // Exemple of specialization (for std::pair) :
 template <class T1, class T2>
@@ -285,6 +292,21 @@ namespace detail {
         detail::for_each(t1, t2, f, seq{});
     }
 
+    // Apply a function for every object in two ranges.
+    // Used for soa::vector copy/move assignments and constructors.
+    template <class T, class SizeT, class F>
+    constexpr void apply_two_arrays(T const* __restrict src, T * dst, SizeT size, F&& f) {
+        for (SizeT i = 0; i < size; ++i) {
+            f(src[i], dst[i]);
+        }
+    }
+    template <class T, class SizeT, class F>
+    constexpr void apply_two_arrays(T * __restrict src, T * dst, SizeT size, F&& f) {
+        for (SizeT i = 0; i < size; ++i) {
+            f(src[i], dst[i]);
+        }
+    }
+
     // Iterator used by soa::vector to return new proxies with references to the elements.
     template <class Vector, bool IsConst>
     class proxy_iterator {
@@ -346,6 +368,11 @@ namespace detail {
 template <class T, class Allocator>
 class vector : public detail::members_with_size<T> {
 public:
+    static_assert(is_defined_v<T>,
+        "soa::vector<T> can't be instancied because the required types 'soa::members<T>', "
+        "'soa::ref_proxy<T>' or 'soa::cref_proxy<T>' haven't been defined. "
+        "Did you forget to call the macro SOA_DEFINE_TYPE(T, members...) ?");
+
     // The given allocator is reboud to std::byte to store the different member types.
     using allocator_type = typename std::allocator_traits<Allocator>::template rebind_alloc<std::byte>;
 
@@ -466,8 +493,13 @@ private:
     // Allocates unitialized array of 'nb' elements.
     alloc_result allocate(int nb);
 
-    static void copy_array(members<T> const& src, members<T>& dst, int nb);
-    static void move_array(members<T>&       src, members<T>& dst, int nb);
+    static void construct_copy_array(members<T> const& src, members<T>& dst, int nb);
+    static void construct_move_array(members<T> &      src, members<T>& dst, int nb);
+
+    template <class F>
+    static void apply_on_arrays(members<T> const& mem_src, members<T> & mem_dst, int nb, F && f);
+    template <class F>
+    static void apply_on_arrays(members<T> & mem_src, members<T> & mem_dst, int nb, F && f);
 
     void destroy() noexcept;
     void destroy(int begin, int end) noexcept;
@@ -529,7 +561,7 @@ vector<T, Allocator>::vector(vector const& rhs) :
     if (rhs.empty()) return;
 
     auto [new_members, nb_bytes] = allocate(size());
-    copy_array(rhs.base(), new_members, size());
+    construct_copy_array(rhs.base(), new_members, size());
     base()    = new_members;
     nb_bytes_ = nb_bytes;
 }
@@ -550,20 +582,16 @@ vector<T, Allocator>& vector<T, Allocator>::operator=(vector&& rhs) noexcept {
     
 template <class T, class Allocator>
 vector<T, Allocator>& vector<T, Allocator>::operator=(vector const& rhs) {
-    auto const size = rhs.size();
-    if (capacity() < size) {
-        destroy();
+    destroy();
+    this->size_ = rhs.size();
+    if (capacity() < size()) {
         deallocate();
-        auto [new_members, nb_bytes] = allocate(size);
+        auto [new_members, nb_bytes] = allocate(size());
         base()    = new_members;
         nb_bytes_ = nb_bytes;
-        capacity_ = size;
+        capacity_ = size();
     }
-    else {
-        destroy();
-    }
-    this->size_ = size;
-    copy_array(rhs.base(), base(), size);
+    construct_copy_array(rhs.base(), base(), size());
     return *this;
 }
 
@@ -587,7 +615,7 @@ void vector<T, Allocator>::reserve(int capacity) {
     if (capacity <= this->capacity()) return;
     
     auto [new_members, nb_bytes] = allocate(capacity);
-    move_array(base(), new_members, size());
+    construct_move_array(base(), new_members, size());
     base()    = new_members;
     nb_bytes_ = nb_bytes;
     capacity_ = capacity;
@@ -692,34 +720,39 @@ auto const& vector<T, Allocator>::get_span() const noexcept {
 // Private functions.
 
 template <class T, class Allocator>
-void vector<T, Allocator>::copy_array(members<T> const& src, members<T>& dst, int nb) {
-    auto const t1 = detail::as_tuple(src);
-    auto const t2 = detail::as_tuple(dst);
-    detail::for_each(t1, t2, [nb] (auto& span_src, auto& span_dst, auto tag) {
-        using type = typename decltype(tag)::type;
-        auto it_src = span_src.begin();
-        auto it_dst = span_dst.begin();
-        auto const end = it_src + nb;
-        for (; it_src < end; ++it_src, ++it_dst) {
-            new (it_dst) type(*it_src);
-        }
+void vector<T, Allocator>::construct_copy_array(members<T> const& mem_src, members<T>& mem_dst, int nb) {
+    apply_on_arrays(mem_src, mem_dst, nb, [] (auto src, auto & dst) {
+        using type = decltype(src);
+        new (&dst) type(src);
+    });
+}
+template <class T, class Allocator>
+void vector<T, Allocator>::construct_move_array(members<T> & mem_src, members<T> & mem_dst, int nb) {
+    apply_on_arrays(mem_src, mem_dst, nb, [] (auto & src, auto & dst) {
+        using type = std::remove_reference_t<decltype(src)>;
+        new (&dst) type(std::move(src));
     });
 }
 
 template <class T, class Allocator>
-void vector<T, Allocator>::move_array(members<T>& src, members<T>& dst, int nb) {
-    auto const t1 = detail::as_tuple(src);
-    auto const t2 = detail::as_tuple(dst);
-    detail::for_each(t1, t2, [nb] (auto& span_src, auto& span_dst, auto tag) {
-        using type = typename decltype(tag)::type;
-        auto it_src = span_src.begin();
-        auto it_dst = span_dst.begin();
-        auto const end = it_src + nb;
-        for (; it_src < end; ++it_src, ++it_dst) {
-            new (it_dst) type(std::move(*it_src));
-        }
+template <class F>
+void vector<T, Allocator>::apply_on_arrays(members<T> const& mem_src, members<T> & mem_dst, int nb, F && f) {
+    auto const t1 = detail::as_tuple(mem_src);
+    auto const t2 = detail::as_tuple(mem_dst);
+    detail::for_each(t1, t2, [f, nb] (auto const& span_src, auto & span_dst, auto tag) {
+        detail::apply_two_arrays(span_src.data(), span_dst.data(), nb, f);
     });
 }
+template <class T, class Allocator>
+template <class F>
+void vector<T, Allocator>::apply_on_arrays(members<T> & mem_src, members<T> & mem_dst, int nb, F && f) {
+    auto const t1 = detail::as_tuple(mem_src);
+    auto const t2 = detail::as_tuple(mem_dst);
+    detail::for_each(t1, t2, [f, nb] (auto & span_src, auto & span_dst, auto tag) {
+        detail::apply_two_arrays(span_src.data(), span_dst.data(), nb, f);
+    });
+}
+
 
 template <class T, class Allocator>
 template <class Tuple, size_t...Is>
@@ -821,7 +854,7 @@ void vector<T, Allocator>::to_zero() noexcept {
 
 } // namespace soa
 
-// Private macros (mainly for SOA_PP_MAP, to implement SOA_DEFINE_TYPE).
+// Private macros.
 
 #define SOA_PP_EMPTY
 #define SOA_PP_EMPTY_ARGS(...)
@@ -856,6 +889,17 @@ void vector<T, Allocator>::to_zero() noexcept {
 #define SOA_PP_CREF(nb, type, name) \
     decltype(std::declval<type>().name) const& name;
 
+#define SOA_PP_COPY(nb, type, name) \
+    name = rhs.name;
+
+#define SOA_PP_MOVE(nb, type, name) \
+    name = std::move(rhs.name);
+
+#define SOA_PP_ENABLE_FOR_COPYABLE(type, alias) \
+    template <class alias, class = std::enable_if_t<std::is_same_v<alias, type> && \
+        std::is_copy_constructible_v<type> \
+    >>
+
 // Shortcut to specialize soa::member<my_type>, by listing all the members
 // in their declaration order. It must be used in the global namespace.
 // Usage exemple :
@@ -873,25 +917,36 @@ void vector<T, Allocator>::to_zero() noexcept {
 //
 // namespace soa {
 //     template <>
-//     struct members<::user::person> {
-//         vector_span<0, ::user::person, std::string> name;
-//         vector_span<1, ::user::person, int> age;
+//     struct members<user::person> {
+//         vector_span<0, user::person, std::string> name;
+//         vector_span<1, user::person, int> age;
 //     };
 //     template <>
-//     struct ref_proxy<::user::person> {
+//     struct ref_proxy<user::person> {
 //         std::string & name;
 //         int & age;
 //          
-//         operator ::user::person() const {
+//         operator user::person() const {
 //             return { name, age };
+//         }
+//
+//         ref_proxy& operator=(user::person const& rhs) {
+//             name = rhs.name;
+//             age = rhs.age;
+//             return *this;
+//         }
+//         ref_proxy& operator=(user::person && rhs) noexcept {
+//             name = rhs.name;
+//             age = rhs.age;
+//             return *this;
 //         }
 //     };
 //     template <>
-//     struct cref_proxy<::user::person> {
+//     struct cref_proxy<user::person> {
 //         std::string const& name;
 //         int const& age;
 //          
-//         operator ::user::person() const {
+//         operator user::person() const {
 //             return { name, age };
 //         }
 //     };
@@ -905,22 +960,28 @@ namespace soa { \
     template <> \
     struct ref_proxy<::type> { \
         SOA_PP_MAP(SOA_PP_REF, ::type, __VA_ARGS__) \
-        /* Use template class to allow SFINAE */ \
-        template <class T, class = std::enable_if_t<std::is_same_v<T, ::type> && \
-            std::is_copy_constructible_v<::type> \
-        >> \
-        operator T() const { \
+        \
+        ref_proxy& operator=(::type && rhs) noexcept { \
+            SOA_PP_MAP(SOA_PP_MOVE, ::type, __VA_ARGS__)  \
+            return *this; \
+        } \
+        SOA_PP_ENABLE_FOR_COPYABLE(::type, _type) \
+        ref_proxy& operator=(_type const& rhs) { \
+            SOA_PP_MAP(SOA_PP_COPY, ::type, __VA_ARGS__)  \
+            return *this; \
+        } \
+        SOA_PP_ENABLE_FOR_COPYABLE(::type, _type) \
+        operator _type() const { \
             return { __VA_ARGS__ }; \
         } \
+        \
     }; \
     template <> \
     struct cref_proxy<::type> { \
         SOA_PP_MAP(SOA_PP_CREF, ::type, __VA_ARGS__) \
-        /* Use template class to allow SFINAE */ \
-        template <class T, class = std::enable_if_t<std::is_same_v<T, ::type> && \
-            std::is_copy_constructible_v<::type> \
-        >> \
-        operator T() const { \
+        \
+        SOA_PP_ENABLE_FOR_COPYABLE(::type, _type) \
+        operator _type() const { \
             return { __VA_ARGS__ }; \
         } \
     }; \
