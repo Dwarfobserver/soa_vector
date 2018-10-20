@@ -739,7 +739,7 @@ template <class F>
 void vector<T, Allocator>::apply_on_arrays(members<T> const& mem_src, members<T> & mem_dst, int nb, F && f) {
     auto const t1 = detail::as_tuple(mem_src);
     auto const t2 = detail::as_tuple(mem_dst);
-    detail::for_each(t1, t2, [f, nb] (auto const& span_src, auto & span_dst, auto tag) {
+    detail::for_each(t1, t2, [f, nb] (auto const& span_src, auto & span_dst, auto) {
         detail::apply_two_arrays(span_src.data(), span_dst.data(), nb, f);
     });
 }
@@ -748,11 +748,10 @@ template <class F>
 void vector<T, Allocator>::apply_on_arrays(members<T> & mem_src, members<T> & mem_dst, int nb, F && f) {
     auto const t1 = detail::as_tuple(mem_src);
     auto const t2 = detail::as_tuple(mem_dst);
-    detail::for_each(t1, t2, [f, nb] (auto & span_src, auto & span_dst, auto tag) {
+    detail::for_each(t1, t2, [f, nb] (auto & span_src, auto & span_dst, auto) {
         detail::apply_two_arrays(span_src.data(), span_dst.data(), nb, f);
     });
 }
-
 
 template <class T, class Allocator>
 template <class Tuple, size_t...Is>
@@ -896,7 +895,8 @@ void vector<T, Allocator>::to_zero() noexcept {
     name = std::move(rhs.name);
 
 #define SOA_PP_ENABLE_FOR_COPYABLE(type, alias) \
-    template <class alias, class = std::enable_if_t<std::is_same_v<alias, type> && \
+    template <class alias, class = std::enable_if_t< \
+        std::is_same_v<alias, type> && \
         std::is_copy_constructible_v<type> \
     >>
 
