@@ -147,15 +147,15 @@ namespace detail {
     auto type_name() {
         auto const name = typeid(T).name();
     #if __has_include(<cxxabi.h>)
-        int status = 42;
-        const auto free_ptr = std::free;
-        auto demangled_name = std::unique_ptr<char*, decltype(free_ptr)>{
-            abi::__cxa_demangle(name, nullptr, nullptr, &status),
+        int error, size;
+        auto const free_ptr = std::free;
+        auto const demangled_name = std::unique_ptr<char, decltype(free_ptr)>{
+            abi::__cxa_demangle(name, nullptr, &size, &error),
             free_ptr
         };
-        return (status == 0)
-            ? std::string{ demangled_name.get() }
-            : std::string{ name };
+        return error
+            ? std::string{ name }
+            : std::string(demangled_name.get(), size);
     #else
         return std::string_view{ name };
     #endif
