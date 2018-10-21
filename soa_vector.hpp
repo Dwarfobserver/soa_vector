@@ -13,7 +13,7 @@
 #include <utility>
 #include <memory>
 #include <tuple>
-#include <string_view>
+#include <string>
 #include <typeinfo>
 #if __has_include(<cxxabi.h>)
 #include <cxxabi.h>
@@ -49,39 +49,6 @@ constexpr bool is_defined_v =
     !std::is_empty_v<members   <Aggregate>> &&
     !std::is_empty_v<ref_proxy <Aggregate>> &&
     !std::is_empty_v<cref_proxy<Aggregate>>;
-
-// Exemple of specialization (for std::pair) :
-template <class T1, class T2>
-struct members<std::pair<T1, T2>> {
-    vector_span<0, std::pair<T1, T2>, T1> first; 
-    vector_span<1, std::pair<T1, T2>, T2> second;
-};
-template <class T1, class T2>
-struct ref_proxy<std::pair<T1, T2>> {
-    T1 & first;
-    T2 & second;
-    
-    // Use of template class to allow SFINAE.
-    // This operator is optional.
-    template <class T_ = T1, class = std::enable_if_t<
-        std::is_copy_constructible_v<std::pair<T_, T2>>
-    >>
-    constexpr operator std::pair<T1, T2>() const {
-        return { first, second };
-    }
-};
-template <class T1, class T2>
-struct cref_proxy<std::pair<T1, T2>> {
-    T1 const& first;
-    T2 const& second;
-    
-    template <class T_ = T1, class = std::enable_if_t<
-        std::is_copy_constructible_v<std::pair<T_, T2>>
-    >>
-    constexpr operator std::pair<T1, T2>() const {
-        return { first, second };
-    }
-};
 
 namespace detail {
 
@@ -994,8 +961,8 @@ void vector<T, Allocator>::to_zero() noexcept {
 //             return *this;
 //         }
 //         ref_proxy& operator=(user::person && rhs) noexcept {
-//             name = rhs.name;
-//             age = rhs.age;
+//             name = std::move(rhs.name);
+//             age = std::move(rhs.age);
 //             return *this;
 //         }
 //     };
