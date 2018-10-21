@@ -149,7 +149,7 @@ namespace detail {
     #if __has_include(<cxxabi.h>)
         int status = 42;
         const auto free_ptr = std::free;
-        auto demangled_name = std::unique_ptr{
+        auto demangled_name = std::unique_ptr<char*, decltype(free_ptr)>{
             abi::__cxa_demangle(name, nullptr, nullptr, &status),
             free_ptr
         };
