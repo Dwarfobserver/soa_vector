@@ -159,12 +159,11 @@ TEST_CASE("proxy objects") {
     persons.back() = challenger;
     REQUIRE(persons.back().name == challenger.name);
     REQUIRE(persons.back().age  == challenger.age);
-    REQUIRE(!challenger.name.empty());
 
     persons.front() = std::move(challenger);
-    REQUIRE(persons.front().name == persons.back().name);
-    REQUIRE(persons.front().age  == persons.back().age);
-    REQUIRE(challenger.name.empty());
+    REQUIRE(persons.front().name != challenger.name);
+    REQUIRE(persons.front().name == persons.name.back());
+    REQUIRE(persons.front().age  == persons.age.back());
 }
 
 TEST_CASE("iteration on proxies") {
