@@ -151,11 +151,11 @@ TEST_CASE("proxy objects") {
     REQUIRE(bob.name == persons.name[0]);
     REQUIRE(bob.age  == persons.age[0]);
 
-    persons[1] = { "Chuck", 15 };
+    persons[1] = { "Chuck", 15, true };
     REQUIRE(persons[1].name == "Chuck");
     REQUIRE(persons[1].age  == 15);
 
-    auto challenger = person{"My name is too long to fit in std::string SBO", 16};
+    auto challenger = person{"My name is too long to fit in std::string SBO", 16, true };
     persons.back() = challenger;
     REQUIRE(persons.back().name == challenger.name);
     REQUIRE(persons.back().age  == challenger.age);
