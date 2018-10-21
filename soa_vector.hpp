@@ -13,7 +13,11 @@
 #include <utility>
 #include <memory>
 #include <tuple>
-
+#include <string_view>
+#include <typeinfo>
+#if __has_include(<cxxabi.h>)
+#include <cxxabi.h>
+#endif
 
 namespace soa {
 
@@ -139,6 +143,40 @@ namespace detail {
         int size_;
     };
 
+    template <class T>
+    auto type_name() {
+        auto const name = typeid(T).name();
+    #if __has_include(<cxxabi.h>)
+        int status = 42;
+        auto demangled_name = std::unique_ptr{
+            abi::__cxa_demangle(name, nullptr, nullptr, &status),
+            std::free
+        };
+        return (status == 0)
+            ? std::string{ demangled_name.get() }
+            : std::string{ name };
+    #else
+        return std::string_view{ name };
+    #endif
+    }
+    template <class...Strings>
+    std::string concatene(Strings const&...str) {
+        auto message = std::string{};
+        message.reserve((0 + ... + str.size()));
+        (message.append(str), ...);
+        return message;
+    }
+    template <class T>
+    [[noreturn]]
+    void throw_out_of_range(int index, int size) {
+        using namespace std::literals;
+        
+        throw std::out_of_range{detail::concatene(
+            "Out of bounds access when calling "sv, detail::type_name<T>(), "::at("sv,
+            std::to_string(index), ") while size = "sv, std::to_string(size)
+        )};
+    }
+
 } // ::detail
 
 template <size_t Pos, class Aggregate, class T>
@@ -150,26 +188,30 @@ class vector_span {
 public:
     using value_type = T;
 
+    // Informations
     T *      data()       noexcept { return ptr_; }
     T const* data() const noexcept { return ptr_; }
-
     int size() const noexcept;
 
+    // Accessors
     T &      operator[](int i)       noexcept { return ptr_[i]; }
     T const& operator[](int i) const noexcept { return ptr_[i]; }
+    T &      at(int i)       { check_at(i); return ptr_[i]; }
+    T const& at(int i) const { check_at(i); return ptr_[i]; }
 
-    T &      at(int i)       { at_check(i); return ptr_[i]; }
-    T const& at(int i) const { at_check(i); return ptr_[i]; }
+    T &      front()       noexcept { return ptr_[0]; }
+    T const& front() const noexcept { return ptr_[0]; }
+    T &      back()       noexcept { return ptr_[size() - 1]; }
+    T const& back() const noexcept { return ptr_[size() - 1]; }
 
+    // Iterators
     T *      begin()       noexcept { return ptr_; }
     T const* begin() const noexcept { return ptr_; }
-
     T *      end()       noexcept { return ptr_ + size(); }
     T const* end() const noexcept { return ptr_ + size(); }
 private:
-    void at_check(int i) const {
-        if (i >= size()) throw std::out_of_range
-            {"soa::vector_span at() out of range"};
+    void check_at(int i) const {
+        if (i >= size()) detail::throw_out_of_range<vector_span<Pos, Aggregate, T>>(i, size());
     }
 
     vector_span() = default;
@@ -410,7 +452,7 @@ public:
     void emplace_back(Ts &&...components);
     void push_back(T const& value);
     void push_back(T && value);
-    void pop_back();
+    void pop_back() noexcept;
 
     // Informations.
     int  size()     const noexcept { return this->size_; }
@@ -418,8 +460,15 @@ public:
     bool empty()    const noexcept { return size() == 0; }
 
     // Accessors.
-    reference_type       operator[](int i)       noexcept { return *      iterator{ this, i }; } 
-    const_reference_type operator[](int i) const noexcept { return *const_iterator{ this, i }; }
+    reference_type       operator[](int i)       noexcept { return *(begin() + i); } 
+    const_reference_type operator[](int i) const noexcept { return *(begin() + i); }
+    reference_type       at(int i)       { check_at(i); return *(begin() + i); }
+    const_reference_type at(int i) const { check_at(i); return *(begin() + i); }
+
+    reference_type       front()       noexcept { return *begin(); }
+    const_reference_type front() const noexcept { return *begin(); }
+    reference_type       back()       noexcept { return *(end() - 1); }
+    const_reference_type back() const noexcept { return *(end() - 1); }
 
     // Iterators.
     iterator       begin()        noexcept { return { this, 0 }; }
@@ -429,6 +478,7 @@ public:
     const_iterator end()  const noexcept { return { this, size() }; }
     const_iterator cend() const noexcept { return end(); }
 
+    // Components accessors.
     template <size_t I>
     auto & get_span() noexcept;
     template <size_t I>
@@ -465,6 +515,8 @@ private:
     using allocator_traits = std::allocator_traits<allocator_type>;
 
     // Functions implementations.
+
+    void check_at(int index) const;
 
     template <class Tuple, size_t...Is>
     void push_back_copy(Tuple const& tuple, std::index_sequence<Is...>);
@@ -692,8 +744,7 @@ void vector<T, Allocator>::emplace_back(Ts&&...components) {
 }
 
 template <class T, class Allocator>
-void vector<T, Allocator>::pop_back() {
-    if (empty()) throw std::logic_error{ "pop_back() called on empty soa::vector" };
+void vector<T, Allocator>::pop_back() noexcept {
     --this->size_;
     detail::for_each(detail::as_tuple(base()), [this] (auto& span, auto tag) {
         using type = typename decltype(tag)::type;
@@ -701,7 +752,7 @@ void vector<T, Allocator>::pop_back() {
     });
 }
 
-// Accessors.
+// Components accessors.
 
 template <class T, class Allocator>
 template <size_t I>
@@ -718,6 +769,11 @@ auto const& vector<T, Allocator>::get_span() const noexcept {
 }
 
 // Private functions.
+
+template <class T, class Allocator>
+void vector<T, Allocator>::check_at(int i) const {
+    if (i >= size()) detail::throw_out_of_range<vector<T, Allocator>>(i, size());
+}
 
 template <class T, class Allocator>
 void vector<T, Allocator>::construct_copy_array(members<T> const& mem_src, members<T>& mem_dst, int nb) {

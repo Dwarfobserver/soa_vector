@@ -151,6 +151,27 @@ TEST_CASE("proxy objects") {
     REQUIRE(bob.name == persons.name[0]);
     REQUIRE(bob.age  == persons.age[0]);
 
+    persons[1] = { "Chuck", 15 };
+    REQUIRE(persons[1].name == "Chuck");
+    REQUIRE(persons[1].age  == 15);
+
+    auto challenger = person{"My name is too long to fit in std::string SBO", 16};
+    persons.back() = challenger;
+    REQUIRE(persons.back().name == challenger.name);
+    REQUIRE(persons.back().age  == challenger.age);
+    REQUIRE(!challenger.name.empty());
+
+    persons.front() = std::move(challenger);
+    REQUIRE(persons.front().name == persons.back().name);
+    REQUIRE(persons.front().age  == persons.back().age);
+    REQUIRE(challenger.name.empty());
+}
+
+TEST_CASE("iteration on proxies") {
+    auto persons = soa::vector<person>{};
+    persons.emplace_back("Bob", 12);
+    persons.emplace_back("Alice", 13);
+    
     auto const ages = persons.age[0] + persons.age[1];
 
     auto ages_1 = 0;
@@ -164,10 +185,22 @@ TEST_CASE("proxy objects") {
     REQUIRE(ages == ages_2);
 
     auto ages_3 = 0;
-    std::for_each(persons.cbegin(), persons.cend(), [&] (auto p) {
+    std::for_each(persons.cbegin(), persons.cend(), [&] (auto const& p) {
         ages_3 += p.age;
     });
     REQUIRE(ages == ages_3);
+}
+
+TEST_CASE("'at(index)' throws correctly") {
+    auto persons = soa::vector<person>{};
+    persons.emplace_back("Bob", 12);
+    persons.emplace_back("Alice", 13);
+
+    CHECK_THROWS_AS(persons.at(2), std::out_of_range);
+    CHECK_THROWS_AS(persons.age.at(2), std::out_of_range);
+
+    CHECK_NOTHROW(persons.at(1));
+    CHECK_NOTHROW(persons.name.at(1));
 }
 
 TEST_CASE("conditions not covered previously") {
