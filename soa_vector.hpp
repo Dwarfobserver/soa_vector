@@ -148,9 +148,10 @@ namespace detail {
         auto const name = typeid(T).name();
     #if __has_include(<cxxabi.h>)
         int status = 42;
+        const auto free_ptr = std::free;
         auto demangled_name = std::unique_ptr{
             abi::__cxa_demangle(name, nullptr, nullptr, &status),
-            std::free
+            free_ptr
         };
         return (status == 0)
             ? std::string{ demangled_name.get() }
