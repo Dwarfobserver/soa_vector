@@ -90,7 +90,7 @@ void copy_ages_with_span(soa::vector<user::person> const& persons, int* __restri
 
 Project limitations :
 
- - The aggregate max size is limited (10 by default, it can be increased with more copy-pasta of the 'soa::detail::as_tuple' function).
+ - The aggregate max size is limited (20 by default, it can be increased with more copy-pasta of the 'soa::detail::as_tuple' function).
  - It does not support aggregates with native arrays (eg. T[N], use std::array<T, N> instead).
  - It does not support aggregates with base classes (they are detected as aggregates but can't be destructured).
  - It does not support over-aligned types from the aggregates.

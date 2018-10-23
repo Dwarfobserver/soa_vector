@@ -256,6 +256,56 @@ namespace detail {
         auto & [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10] = agg;
         return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10);
     }
+    template <class T>
+    auto as_tuple(T & agg, std::integral_constant<int, 11>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11] = agg;
+        return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11);
+    }
+    template <class T>
+    auto as_tuple(T & agg, std::integral_constant<int, 12>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12] = agg;
+        return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12);
+    }
+    template <class T>
+    auto as_tuple(T & agg, std::integral_constant<int, 13>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13] = agg;
+        return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13);
+    }
+    template <class T>
+    auto as_tuple(T & agg, std::integral_constant<int, 14>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14] = agg;
+        return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14);
+    }
+    template <class T>
+    auto as_tuple(T & agg, std::integral_constant<int, 15>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15] = agg;
+        return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15);
+    }
+    template <class T>
+    auto as_tuple(T & agg, std::integral_constant<int, 16>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16] = agg;
+        return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16);
+    }
+    template <class T>
+    auto as_tuple(T & agg, std::integral_constant<int, 17>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17] = agg;
+        return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17);
+    }
+    template <class T>
+    auto as_tuple(T & agg, std::integral_constant<int, 18>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18] = agg;
+        return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18);
+    }
+    template <class T>
+    auto as_tuple(T & agg, std::integral_constant<int, 19>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19] = agg;
+        return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19);
+    }
+    template <class T>
+    auto as_tuple(T & agg, std::integral_constant<int, 20>) {
+        auto & [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20] = agg;
+        return std::forward_as_tuple(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20);
+    }
 
     // The arity is the number of members of a well-formed soa::member<T>.
     template <class Members>
