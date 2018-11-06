@@ -3,7 +3,7 @@
     soa_vector.hpp
     MIT license (2018)
     Header repository : https://github.com/Dwarfobserver/soa_vector
-    You can join me at sidney.congard@gmail.com
+    You can contact me at sidney.congard@gmail.com
  */
 
 #pragma once
@@ -384,12 +384,15 @@ namespace detail {
         proxy_iterator(vector_pointer_type vec, int index) noexcept :
             vec_{vec}, index_{index} {}
     public:
-        // Note : replace with std::continuous_iteartor_rag when it is available.
         using iterator_category = std::random_access_iterator_tag;
 
         using value_type = std::conditional_t<IsConst,
             typename Vector::const_reference_type,
             typename Vector::reference_type>;
+
+        using reference = value_type;
+        using pointer = void;
+        using difference_type = int;
     private:
         template <size_t...Is>
         value_type make_proxy(std::index_sequence<Is...>) const noexcept {

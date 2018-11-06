@@ -11,7 +11,7 @@ It works on MSVC-19.14, Clang-5.0 and GCC-7.2.
 
 This project is in early development and prone to change. I'd be happy to receive any feedback on it's design or performance !
 
-Simple exemple usage :
+Simple example usage :
 
 ```cpp
 
@@ -48,9 +48,9 @@ soa::vector<user::person> make_persons() {
         age += 1;
     
     // You can also access the components like a classic vector through a proxy.
-    // Be careful to not use the proxy with a dangling reference.
-    for (auto p : persons)
+    std::for_each(persons.begin(), persons.end(), [] (auto&& p) {
         std::cout << "new person : " << p.name << '\n';
+    });
     
     return persons;
 }
